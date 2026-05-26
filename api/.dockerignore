@@ -1,0 +1,46 @@
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Python build / cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Tests / docs that aren't needed in the image
+tests/
+docs/
+README.md
+
+# Docker / compose (the image doesn't need to know about itself)
+Dockerfile
+docker-compose*.yml

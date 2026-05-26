@@ -1,0 +1,38 @@
+# =============================================================================
+# Prometheus scrape configuration for the KorUZ Mall stack.
+#
+# Bind-mounted at /etc/prometheus/prometheus.yml inside the prometheus
+# container (see docker-compose.yml). All scrape targets are addressed by
+# their compose service name; reachable on the shared `koruz-net` bridge.
+#
+# When you wire in `prometheus-fastapi-instrumentator` (or equivalent) so
+# the API exposes /metrics, the `koruz-api` job below starts reporting
+# without any further config change. Until then the target shows as DOWN
+# in the Prometheus UI — that's expected, not an error.
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  # Tags every series so cross-cluster Grafana dashboards can disambiguate.
+  external_labels:
+    cluster: koruz-mall
+    environment: development
+
+scrape_configs:
+  # Prometheus self-scrape — useful for confirming the config is loaded
+  # (visit http://localhost:9090/targets) and for monitoring the monitor.
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  # FastAPI exposes /metrics via prometheus-fastapi-instrumentator (see
+  # main.py). The target should show UP once the API is running.
+  - job_name: koruz-api
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - api:8000
+        labels:
+          service: api

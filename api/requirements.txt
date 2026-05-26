@@ -1,0 +1,89 @@
+# =============================================================================
+# KorUZ Mall API — runtime dependencies (locked).
+#
+# This is the final locked manifest. Every package the API process and
+# Celery worker import at runtime is listed here with an exact version
+# pin. Do not float versions: reproducible builds and no-surprise
+# upgrades are the whole point.
+#
+# How to bump a pin:
+#   1. Change the version below.
+#   2. Rebuild the API image: `docker compose build api worker`.
+#   3. Run the test suite + the per-feature smoke scripts.
+#   4. Commit. Do not bump multiple unrelated packages in one commit.
+#
+# Notes on cross-package constraints (read before bumping):
+#   * celery 5.6.x's `[redis]` extra requires `redis<7`. We therefore pin
+#     `redis==6.4.0`. Bumping celery past the 5.6 line may relax this.
+#   * SQLAlchemy 2.0.x is the only line that ships first-class
+#     `from sqlalchemy.ext.asyncio import AsyncSession` typing; do not
+#     downgrade to 1.4.
+#   * `asyncpg` is the production driver; `psycopg[binary]` is only used
+#     by Alembic for synchronous migrations and is irrelevant at request
+#     time.
+#
+# Dev tools (pytest, ruff, mypy) intentionally live outside this file —
+# they have no place in the production image. Add them to a separate
+# `requirements-dev.txt` if/when needed.
+# =============================================================================
+
+
+# ---- Web framework / ASGI ---------------------------------------------------
+fastapi==0.136.1
+uvicorn[standard]==0.34.0
+gunicorn==23.0.0
+
+# ---- Settings / validation --------------------------------------------------
+pydantic==2.13.3
+pydantic-settings==2.14.0
+# Required by `pydantic.EmailStr`; not a direct import but pydantic raises
+# a clear error at import time if it's missing, so we pin it explicitly.
+email-validator==2.3.0
+
+# ---- Database ---------------------------------------------------------------
+SQLAlchemy[asyncio]==2.0.49
+asyncpg==0.31.0
+# Sync driver kept ONLY for Alembic migrations (alembic/env.py runs sync
+# offline + uses `engine.begin()` in run_migrations_online). The API
+# request path never touches psycopg.
+psycopg[binary]==3.2.4
+alembic==1.18.4
+
+# ---- Security ---------------------------------------------------------------
+# PyJWT is the modern, actively-maintained option (python-jose has been
+# stagnant since 2023). Used for access/refresh-token encode/decode.
+PyJWT==2.12.1
+# bcrypt 5.x ships fast Rust bindings; we use it directly rather than
+# via passlib (passlib has been effectively unmaintained since 2020).
+bcrypt==5.0.0
+
+# ---- Cache / refresh-token store -------------------------------------------
+# redis-py 6.x exposes its async client at `redis.asyncio`. Pinned to 6.x
+# because celery 5.6 caps `redis<7` via its `celery[redis]` extra; the
+# 6.4 line is feature-complete for our usage (refresh-token whitelist,
+# FX rate cache, generic key/value reads).
+redis==6.4.0
+
+# ---- Async job queue --------------------------------------------------------
+# `celery[redis]` pulls in the right kombu redis transport. Beat schedule
+# for periodic FX + delivery polling lives in workers/celery_app.py.
+celery[redis]==5.6.1
+
+# ---- Outbound HTTP ----------------------------------------------------------
+# Used by the FX rate provider polling task, carrier tracking polls, and
+# (when wired in) payment-gateway server-to-server calls. We rely on the
+# async client (`httpx.AsyncClient`) inside Celery tasks via run_async.
+httpx==0.28.1
+
+# ---- Object storage --------------------------------------------------------
+# Official MinIO Python SDK. Pure-Python sync client; we only use it for
+# bucket bootstrap (one-shot at app startup, offloaded to a thread) and
+# presigned URL generation (no I/O — local HMAC signing), so the sync
+# API is safe inside our async request handlers.
+minio==7.2.15
+
+# ---- Observability / Prometheus -------------------------------------------
+# prometheus-fastapi-instrumentator adds HTTP request instrumentation and
+# exposes GET /metrics (text/plain exposition format).
+prometheus-client==0.25.0
+prometheus-fastapi-instrumentator==7.1.0
